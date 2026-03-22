@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, responses
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.utils import generate_short_code, normalize_url
+from src.utils import generate_short_code
 from src.db import get_db
 from datetime import datetime, timezone
 from src import models
@@ -26,7 +26,19 @@ async def create_short_link(
     session: AsyncSession = Depends(get_db),
     user: models.User = Depends(optional_current_user),
 ):
+    if not original_url or not original_url.strip():
+        raise HTTPException(400, "URL обязателен")
+
+    if expires_at:
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            raise HTTPException(400, "expires_at не может быть в прошлом")
+
     if custom_alias:
+        if not custom_alias.isalnum():
+            raise HTTPException(400, "Алиас должен содержать только буквы и цифры")
+
         # проверяем, не дублируется ли алиас
         result = await session.execute(
             select(models.Link).where(models.Link.short_code == custom_alias)
@@ -46,9 +58,9 @@ async def create_short_link(
             result = await session.execute(
                 select(models.Link).where(models.Link.short_code == short_code)
             )
-            exists = result.scalar_one_or_none()
+            existing = result.scalar_one_or_none()
 
-            if not exists:
+            if not existing:
                 break
 
     link = models.Link(
@@ -140,8 +152,11 @@ async def update_link(
     short_code: str,
     new_short_code: str,
     session: AsyncSession = Depends(get_db),
-    user: models.User = Depends(current_user),
+    user: models.User = Depends(optional_current_user),
 ):
+    if not user:
+        raise HTTPException(401, "Не авторизован")
+
     result = await session.execute(
         select(models.Link).where(models.Link.short_code == short_code)
     )
@@ -156,9 +171,9 @@ async def update_link(
     result = await session.execute(
         select(models.Link).where(models.Link.short_code == new_short_code)
     )
-    exists = result.scalar_one_or_none()
+    existing = result.scalar_one_or_none()
 
-    if exists:
+    if existing:
         raise HTTPException(400, f"Код '{new_short_code}' уже используется")
 
     link.short_code = new_short_code
@@ -176,8 +191,10 @@ async def update_link(
 async def delete_link(
     short_code: str,
     session: AsyncSession = Depends(get_db),
-    user: models.User = Depends(current_user),
+    user: models.User = Depends(optional_current_user),
 ):
+    if not user:
+        raise HTTPException(401, "Не авторизован")
 
     result = await session.execute(
         select(models.Link).where(models.Link.short_code == short_code)

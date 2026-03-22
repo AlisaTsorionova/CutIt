@@ -1,5 +1,5 @@
 from fastapi import Depends, Request
-from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
+from fastapi_users import BaseUserManager, FastAPIUsers
 from fastapi_users.authentication import (
     AuthenticationBackend,
     BearerTransport,
@@ -37,5 +37,5 @@ fastapi_users = FastAPIUsers[User, int](
     [auth_backend],
 )
 
-current_user = fastapi_users.current_user(active=True)
+current_user = fastapi_users.current_user(active=True, verified=False)
 optional_current_user = fastapi_users.current_user(optional=True)

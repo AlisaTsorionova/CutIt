@@ -5,6 +5,7 @@
 # 1. Установка зависимостей
 
 pip install -r requirements.txt
+pip install -r requirements-dev.txt
 
 # 2. Запуск docker-compose
 
@@ -31,3 +32,10 @@ python -m uvicorn src.main:app --reload
 # Пример запроса
 
 curl -X POST "http://localhost:8000/api/links/shorten?original_url=google.com&custom_alias=pupsen"
+
+
+# Запуск тестов (указать файл)
+python -m pytest tests/api_tests/test_shorten.py -v
+
+# Проверка покрытия
+python -m pytest tests/ --cov=src --cov-report=term-missing
